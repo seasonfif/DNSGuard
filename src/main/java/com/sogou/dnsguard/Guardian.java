@@ -1,7 +1,8 @@
 package com.sogou.dnsguard;
 
-import java.util.List;
-
+/**
+ * ip匹配规则
+ */
 public class Guardian {
 
     /**
@@ -12,5 +13,16 @@ public class Guardian {
     /**
      * 域名对应的ips
      */
-    public List<String> ips;
+    public String[] ips;
+
+    /**
+     * 域名规则
+     */
+    public String pattern;
+
+    public Guardian(String[] ips, String pattern){
+        this.ips = ips;
+        this.pattern = pattern;
+
+    }
 }

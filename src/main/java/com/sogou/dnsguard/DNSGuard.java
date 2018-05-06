@@ -4,9 +4,7 @@ import android.util.Log;
 
 import java.net.InetAddress;
 import java.net.UnknownHostException;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.Random;
 
 public class DNSGuard {
@@ -14,10 +12,10 @@ public class DNSGuard {
     private static volatile DNSGuard sInstance;
 
     private static GuardianMap sGuardians;
-    private static Map<String, SafeDNS> sDNSCache;
+    private SafeDNS safeDNS;
 
     private DNSGuard(){
-        sDNSCache = new HashMap<>();
+        safeDNS = new SafeDNS();
     }
 
     public static DNSGuard getsInstance() {
@@ -31,16 +29,41 @@ public class DNSGuard {
         return sInstance;
     }
 
+    /**
+     * 设置域名对应的ip以及匹配规则用以判断是否发生DNS拦截
+     * 必须在网络请求之前进行设置，建议Application中
+     * @param guardians
+     */
     public static void guard(GuardianMap guardians){
         sGuardians = guardians;
     }
 
-    public List<InetAddress> lookup(String domain) throws UnknownHostException{
-        SafeDNS safeDNS = sDNSCache.get(domain);
-        if (safeDNS == null){
-            safeDNS = new SafeDNS();
-            sDNSCache.put(domain, safeDNS);
+    /**
+     * HttpClient/HttpURLConnection接入时通过域名获取直连ip
+     * 如果发生劫持将会返回配置的ip，如果没有预先配置将会返回null
+     * 否则返回原域名
+     * @param domain
+     * @return
+     */
+    public String getIpByHost(String domain){
+        try {
+            InetAddress inetAddresses = InetAddress.getByName(domain);
+            if (safeDNS.isHijack(new InetAddress[]{inetAddresses}, domain)){
+                return getRandomIpFromGuardian(domain);
+            }
+        } catch (UnknownHostException e) {
+            return getRandomIpFromGuardian(domain);
         }
+        return domain;
+    }
+
+    /**
+     * OkHttp接入时在自定义的DNS里面调用此方法即可
+     * @param domain
+     * @return
+     * @throws UnknownHostException
+     */
+    public List<InetAddress> lookup(String domain) throws UnknownHostException{
         return safeDNS.lookup(domain);
     }
 
@@ -50,11 +73,10 @@ public class DNSGuard {
      * @return
      * @throws UnknownHostException
      */
-    public InetAddress[] resolveHijack(String domain) throws UnknownHostException {
-        Log.e("DNSGuard","发生DNS劫持: "+domain);
-        String[] ips = lookfor(domain);
-        if (ips != null && ips.length > 0){
-            return InetAddress.getAllByName(getDirectIpForHttp(ips));
+    InetAddress[] resolveHijack(String domain) throws UnknownHostException {
+        String ip = getRandomIpFromGuardian(domain);
+        if (ip != null){
+            return InetAddress.getAllByName(ip);
         }else{
             throw new UnknownHostException(String.format("DNSGuard未找到%s配置的ips", domain));
         }
@@ -65,9 +87,25 @@ public class DNSGuard {
      * @param domain
      * @return
      */
-    public String[] lookfor(String domain) {
+    Guardian lookfor(String domain) {
         if (sGuardians != null){
             return sGuardians.get(domain);
+        }
+        return null;
+    }
+
+    /**
+     * 随机获取一个Guardian配置的ip
+     * @param domain
+     * @return
+     */
+    private String getRandomIpFromGuardian(String domain) {
+        Guardian guardian = lookfor(domain);
+        if (guardian != null){
+            String[] ips = guardian.ips;
+            if (ips != null && ips.length > 0){
+                return getDirectIpForHttp(ips);
+            }
         }
         return null;
     }
@@ -86,6 +124,7 @@ public class DNSGuard {
         }else{
             directIp = ips[0];
         }
+        Log.e("DNSGuard","尝试使用ip: "+directIp);
         return directIp;
     }
 }

@@ -4,20 +4,20 @@ import java.util.HashMap;
 
 public class GuardianMap {
 
-    private HashMap<String, String[]> map;
+    private HashMap<String, Guardian> map;
 
     public GuardianMap(){
         map = new HashMap<>();
     }
 
-    public GuardianMap put(String domain, String[] guardian){
+    public GuardianMap put(String domain, Guardian guardian){
         if (map != null){
             map.put(domain, guardian);
         }
         return this;
     }
 
-    public String[] get(String domain) {
+    public Guardian get(String domain) {
         if (map != null && map.containsKey(domain)){
             return map.get(domain);
         }
