@@ -23,16 +23,27 @@ class SafeDNS implements IDNS{
     @Override
     public List<InetAddress> lookup(String hostname) throws UnknownHostException {
 
-        InetAddress[] inetAddresses;
+        InetAddress[] inetAddresses = null;
         try{
+            long start = System.currentTimeMillis();
             inetAddresses = InetAddress.getAllByName(hostname);
+            long end = System.currentTimeMillis();
+            Log.e("DNSGuard","InetAddress.getAllByName耗时："+(end-start));
+
             if (isHijack(inetAddresses, hostname)){
+
                 inetAddresses = DNSGuard.getsInstance().resolveHijack(hostname);
+
             }
 
         } catch (UnknownHostException e){
 
             inetAddresses = DNSGuard.getsInstance().resolveHijack(hostname);
+
+        } finally {
+
+            if (inetAddresses == null) throw new UnknownHostException();
+
         }
 
         return Arrays.asList(inetAddresses);
@@ -72,25 +83,44 @@ class SafeDNS implements IDNS{
         if (guardian != null){
             String[] ips = guardian.ips;
             String pattern = guardian.pattern;
-            if (ips != null){
-                // 检测ip是否在设置的白名单里面
-                if (!Arrays.asList(ips).contains(inetAddress)){
-                    Log.e("DNSGuard","ip不在白名单："+inetAddress);
-                    isHijack = true;
+            if (ips == null && pattern == null){
+                Log.e("DNSGuard","未设置白名单和匹配规则" + ": " + inetAddress);
+                isHijack = false;
+            } else{
+                if (ips != null && ips.length > 0){
+                    // 检测ip是否在设置的白名单里面
+                    if (!Arrays.asList(ips).contains(inetAddress)){
+                        Log.e("DNSGuard","ip不在白名单："+inetAddress);
+                        isHijack = true;
 
+                        if (!TextUtils.isEmpty(pattern)){
+
+                            boolean match = Pattern.matches(pattern, inetAddress);
+                            // 是否匹配合法的ip规则
+                            if (match){
+                                Log.e("DNSGuard","ip符合规则："+pattern + ": " + inetAddress);
+                                isHijack = false;
+                            }else{
+                                Log.e("DNSGuard","ip不符合规则："+pattern + ": " + inetAddress);
+                            }
+                        }
+                    } else {
+                        Log.e("DNSGuard","ip在白名单："+inetAddress);
+                    }
+                } else {
                     if (!TextUtils.isEmpty(pattern)){
 
                         boolean match = Pattern.matches(pattern, inetAddress);
                         // 是否匹配合法的ip规则
                         if (match){
-                            Log.e("DNSGuard","ip符合规则："+pattern + " : " + inetAddress);
-                            isHijack = false;
+                            Log.e("DNSGuard","未配置白名单但是ip符合规则："+pattern + ": " + inetAddress);
                         }else{
-                            Log.e("DNSGuard","ip不符合规则："+pattern + " : " + inetAddress);
+                            Log.e("DNSGuard","未配置白名单且ip不符合规则："+pattern + ": " + inetAddress);
+                            isHijack = true;
                         }
+                    }else{
+                        Log.e("DNSGuard","未设置有效的白名单和匹配规则" + ": " + inetAddress);
                     }
-                } else {
-                    Log.e("DNSGuard","ip在白名单："+inetAddress);
                 }
             }
         }

@@ -73,13 +73,19 @@ public class DNSGuard {
      * @return
      * @throws UnknownHostException
      */
-    InetAddress[] resolveHijack(String domain) throws UnknownHostException {
+    InetAddress[] resolveHijack(String domain) {
         String ip = getRandomIpFromGuardian(domain);
         if (ip != null){
-            return InetAddress.getAllByName(ip);
+            try {
+                return InetAddress.getAllByName(ip);
+            } catch (UnknownHostException e) {
+                e.printStackTrace();
+                Log.e("DNSGuard","解析直连ip出现异常："+ip);
+            }
         }else{
-            throw new UnknownHostException(String.format("DNSGuard未找到%s配置的ips", domain));
+            Log.e("DNSGuard",String.format("未找到%s配置的ips", domain));
         }
+        return null;
     }
 
     /**
