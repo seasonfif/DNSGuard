@@ -27,7 +27,7 @@ allprojects {
 2、在使用的module中添加依赖
 ```
 dependencies {
-    compile 'com.sogou.commonlib:DNSGuard:1.0.0@aar''
+    compile 'com.sogou.commonlib:DNSGuard:1.0.0@aar'
 }
 ```
 ## **接入方法**
@@ -35,15 +35,23 @@ dependencies {
 在网络请求之前需要使用预置规则进行初始化，建议在Application中执行。
 示例如下：
 ```java
- DNSGuard.guard(new GuardianMap()
-                 .put("www.sogou.com",
-                         new Guardian(new String[]{"111.202.102", "111.202.100.49", "111.202.102.51"}, "111.202.\\d{1,3}.\\d{1,3}"))
-                 .put("www.baidu.com",
-                         new Guardian(new String[]{"61.135.19.121"}, "61.135.19.\\d{1,3}")));
+ DNSGuard.guard(new GuardConfig.Builder()
+                 .setLogLevel(LogLevel.LOG_D)
+                 .addGuardian(new Guardian("www.sogou.com", new String[]{"111.202.102", "111.202.100.49", "111.202.102.51"}, "111.202.\\d{1,3}.\\d{1,3}"))
+                 .addGuardian(new Guardian("www.baidu.com",new String[]{"61.135.169.125"}, "61.135.19.\\d{1,3}"))
+                 .build());
 ```
-GuardianMap内部使用HashMap存储预置的安全规则，key为域名，value为Guardian对象。
+GuardConfig是一些必要的基础设置，目前支持设置日志输出级别、域名对应的ip以及匹配规则
+
+LogLevel即日志输出级别
+
 Guardian对象描述了具体的安全规则，包括一组ip地址和一个正则匹配规则，构造函数如下：
 ```java
+/**
+ * 域名
+ */
+public String domainName;
+
 /**
  * 域名对应的ips
  */
@@ -54,10 +62,10 @@ public String[] ips;
  */
 public String pattern;
 
-public Guardian(String[] ips, String pattern){
+public Guardian(String domainName, String[] ips, String pattern){
+    this.domainName = domainName;
     this.ips = ips;
     this.pattern = pattern;
-
 }
 ```
 
@@ -113,7 +121,7 @@ try {
     // 同步接口获取IP
     String ip = DNSGuard.getsInstance().getIpByHost(originHost);
     HttpsURLConnection conn;
-    if (ip != null) {
+    if (ip != null && !ip.equals(originHost)) {
         // 通过HTTPDNS获取IP成功，进行URL替换和HOST头设置
         url = new URL(originUrl.replaceFirst(originHost, ip));
         conn = (HttpsURLConnection) url.openConnection();
@@ -128,6 +136,16 @@ try {
     } else {
         conn = (HttpsURLConnection) url.openConnection();
     }
+
+    DataInputStream dis = new DataInputStream(conn.getInputStream());
+    int len;
+    byte[] buff = new byte[4096];
+    StringBuilder response = new StringBuilder();
+    while ((len = dis.read(buff)) != -1) {
+        response.append(new String(buff, 0, len));
+    }
+
+    Log.e(TAG, "Response: " + response.toString());
 } catch (IOException e) {
     e.printStackTrace();
 }

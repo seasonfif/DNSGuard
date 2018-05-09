@@ -1,7 +1,5 @@
 package com.sogou.dnsguard;
 
-import android.util.Log;
-
 import java.net.InetAddress;
 import java.net.UnknownHostException;
 import java.util.List;
@@ -12,13 +10,13 @@ public class DNSGuard {
     private static volatile DNSGuard sInstance;
 
     private static GuardianMap sGuardians;
-    private SafeDNS safeDNS;
+    private DNSImpl dns;
 
     private DNSGuard(){
-        safeDNS = new SafeDNS();
+        dns = new DNSImpl();
     }
 
-    public static DNSGuard getsInstance() {
+    public static DNSGuard getInstance() {
         if (sInstance == null){
             synchronized (DNSGuard.class){
                 if (sInstance == null){
@@ -30,12 +28,15 @@ public class DNSGuard {
     }
 
     /**
-     * 设置域名对应的ip以及匹配规则用以判断是否发生DNS拦截
+     * DNSGuard的基础设置
+     * 1、日志输出级别
+     * 2、域名对应的ip以及匹配规则用以判断是否发生DNS拦截
      * 必须在网络请求之前进行设置，建议Application中
-     * @param guardians
+     * @param config
      */
-    public static void guard(GuardianMap guardians){
-        sGuardians = guardians;
+    public static void guard(GuardConfig config){
+        LogKit.init(config.level);
+        sGuardians = config.guardianMap;
     }
 
     /**
@@ -48,7 +49,7 @@ public class DNSGuard {
     public String getIpByHost(String domain){
         try {
             InetAddress inetAddresses = InetAddress.getByName(domain);
-            if (safeDNS.isHijack(new InetAddress[]{inetAddresses}, domain)){
+            if (dns.isHijack(new InetAddress[]{inetAddresses}, domain)){
                 return getRandomIpFromGuardian(domain);
             }
         } catch (UnknownHostException e) {
@@ -64,7 +65,7 @@ public class DNSGuard {
      * @throws UnknownHostException
      */
     public List<InetAddress> lookup(String domain) throws UnknownHostException{
-        return safeDNS.lookup(domain);
+        return dns.lookup(domain);
     }
 
     /**
@@ -80,10 +81,10 @@ public class DNSGuard {
                 return InetAddress.getAllByName(ip);
             } catch (UnknownHostException e) {
                 e.printStackTrace();
-                Log.e("DNSGuard","解析直连ip出现异常："+ip);
+                LogKit.log("解析直连ip出现异常："+ip);
             }
         }else{
-            Log.e("DNSGuard",String.format("未找到%s配置的ips", domain));
+            LogKit.log(String.format("未找到%s配置的ips", domain));
         }
         return null;
     }
@@ -130,7 +131,7 @@ public class DNSGuard {
         }else{
             directIp = ips[0];
         }
-        Log.e("DNSGuard","尝试使用ip: "+directIp);
+        LogKit.log("尝试使用ip: "+directIp);
         return directIp;
     }
 }

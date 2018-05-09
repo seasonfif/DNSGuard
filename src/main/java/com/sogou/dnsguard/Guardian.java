@@ -8,7 +8,7 @@ public class Guardian {
     /**
      * 域名
      */
-    public String domain;
+    public String domainName;
 
     /**
      * 域名对应的ips
@@ -20,9 +20,9 @@ public class Guardian {
      */
     public String pattern;
 
-    public Guardian(String[] ips, String pattern){
+    public Guardian(String domainName, String[] ips, String pattern){
+        this.domainName = domainName;
         this.ips = ips;
         this.pattern = pattern;
-
     }
 }
